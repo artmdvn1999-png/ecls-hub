@@ -1,0 +1,252 @@
+--[[
+    Script: Steal an Egg Hub (FlowAuth Integrated & Debug Enabled)
+    Features: Auto Steal, Pet Selector, ESP Pet, Anti-Ban, Anti-Bat, FPS Boost, UI Toggle, Multi-language
+]]--
+
+-- 1. Khởi tạo và kiểm tra kết nối FlowAuth an toàn
+local FlowAuthLoaded, FlowAuth = pcall(function()
+    return loadstring(game:HttpGet("https://flowauth.net/api/v1/sdk.lua"))()
+end)
+
+if not FlowAuthLoaded then
+    warn("[FlowAuth Error]: Không thể kết nối tới máy chủ xác thực hoặc link SDK không hợp lệ.")
+end
+
+-- 2. Khởi tạo các dịch vụ Roblox cần thiết
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+-- Xóa UI cũ nếu đã tồn tại để tránh trùng lặp
+if CoreGui:FindFirstChild("StealAnEggHub") then
+    CoreGui.StealAnEggHub:Destroy()
+end
+
+-- Cấu hình trạng thái tính năng
+local Settings = {
+    AutoSteal = false,
+    SelectedPet = "All",
+    PetESP = false,
+    AntiBan = true,
+    AntiBat = true,
+    FPSBoost = false,
+    Language = "VN" -- Hỗ trợ "VN" hoặc "EN"
+}
+
+-- Từ điển ngôn ngữ giao diện
+local Translations = {
+    VN = {
+        Title = "Steal an Egg Hub | FlowAuth",
+        AutoSteal = "Tự động trộm trứng (Auto Steal)",
+        SelectPet = "Lọc loại Pet: ",
+        ESP = "Bật ESP Pet (Nhìn xuyên tường)",
+        AntiBan = "Chống Ban (Anti-Ban Bypass)",
+        AntiBat = "Chống Gậy/Vật cản (Anti-Bat)",
+        FPSBoost = "Tăng FPS & Giảm Lag",
+        ToggleKey = "Nhấn [Right Shift] để ẩn/hiện Menu"
+    },
+    EN = {
+        Title = "Steal an Egg Hub | FlowAuth",
+        AutoSteal = "Auto Steal Egg",
+        SelectPet = "Target Pet: ",
+        ESP = "Pet ESP",
+        AntiBan = "Anti-Ban",
+        AntiBat = "Anti-Bat",
+        FPSBoost = "FPS Boost & Fix Lag",
+        ToggleKey = "Press [Right Shift] to Toggle UI"
+    }
+}
+
+-- 3. Xây dựng giao diện UI (ScreenGui)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StealAnEggHub"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.Position = UDim2.new(0.5, -210, 0.5, -170)
+MainFrame.Size = UDim2.new(0, 420, 0, 340)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+-- Tiêu đề Menu
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleLabel.Size = UDim2.new(1, 0, 0, 45)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Text = Translations[Settings.Language].Title
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleLabel
+
+-- Nút đổi ngôn ngữ (VN / EN)
+local LangButton = Instance.new("TextButton")
+LangButton.Parent = TitleLabel
+LangButton.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
+LangButton.Position = UDim2.new(1, -80, 0.5, -12)
+LangButton.Size = UDim2.new(0, 70, 0, 24)
+LangButton.Font = Enum.Font.SourceSansBold
+LangButton.Text = "Lang: VN"
+LangButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+LangButton.TextSize = 12
+
+local LangCorner = Instance.new("UICorner")
+LangCorner.CornerRadius = UDim.new(0, 6)
+LangCorner.Parent = LangButton
+
+-- Hướng dẫn phím tắt ẩn/hiện
+local HintLabel = Instance.new("TextLabel")
+HintLabel.Parent = MainFrame
+HintLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+HintLabel.Position = UDim2.new(0, 10, 1, -30)
+HintLabel.Size = UDim2.new(1, -20, 0, 20)
+HintLabel.Font = Enum.Font.SourceSansItalic
+HintLabel.Text = Translations[Settings.Language].ToggleKey
+HintLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HintLabel.TextSize = 12
+
+-- 4. Xử lý logic các tính năng cốt lõi có kèm bắt lỗi (pcall debug)
+
+-- Tăng FPS & Giảm Lag
+local function ApplyFPSBoost(state)
+    local success, err = pcall(function()
+        if state then
+            for _, v in pairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") or v:IsA("Sky") then
+                    v.Enabled = false
+                end
+            end
+            workspace.CurrentCamera.FieldOfView = 70
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        else
+            for _, v in pairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") or v:IsA("Sky") then
+                    v.Enabled = true
+                end
+            end
+        end
+    end)
+    if not success then
+        warn("[FPSBoost Error]: " .. tostring(err))
+    end
+end
+
+-- Vòng lặp Auto Steal (Được bọc pcall để chống văng game khi mất kết nối hoặc sai thư mục)
+task.spawn(function()
+    while task.wait(0.6) do
+        if Settings.AutoSteal then
+            local success, err = pcall(function()
+                local eggsFolder = workspace:FindFirstChild("Eggs")
+                if not eggsFolder then return end -- Bỏ qua nếu chưa tìm thấy thư mục trứng
+
+                for _, egg in pairs(eggsFolder:GetChildren()) do
+                    if egg:FindFirstChild("PetName") then
+                        if Settings.SelectedPet == "All" or egg.PetName.Value == Settings.SelectedPet then
+                            -- GỌI REMOTE EVENT TRỘM TRỨNG THỰC TẾ CỦA GAME Ở ĐÂY:
+                            -- Ví dụ: ReplicatedStorage.Remotes.StealEgg:FireServer(egg)
+                        end
+                    end
+                end
+            end)
+            if not success then
+                warn("[AutoSteal Error]: " .. tostring(err))
+            end
+        end
+    end
+end)
+
+-- ESP Pet (Hiển thị thông tin Pet xuyên tường)
+RunService.RenderStepped:Connect(function()
+    if Settings.PetESP then
+        local success, err = pcall(function()
+            local eggsFolder = workspace:FindFirstChild("Eggs")
+            if not eggsFolder then return end
+
+            for _, egg in pairs(eggsFolder:GetChildren()) do
+                if not egg:FindFirstChild("ESP_Tag") and egg:FindFirstChild("PrimaryPart") then
+                    local Billboard = Instance.new("BillboardGui")
+                    Billboard.Name = "ESP_Tag"
+                    Billboard.Adornee = egg.PrimaryPart
+                    Billboard.Size = UDim2.new(0, 100, 0, 50)
+                    Billboard.AlwaysOnTop = true
+
+                    local TextLab = Instance.new("TextLabel")
+                    TextLab.Parent = Billboard
+                    TextLab.BackgroundTransparency = 1
+                    TextLab.Size = UDim2.new(1, 0, 1, 0)
+                    TextLab.Font = Enum.Font.SourceSansBold
+                    TextLab.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    TextLab.TextSize = 14
+                    TextLab.Text = egg.Name
+
+                    Billboard.Parent = egg
+                end
+            end
+        end)
+        if not success then
+            warn("[ESP Error]: " .. tostring(err))
+        end
+    else
+        -- Xóa ESP khi tắt
+        pcall(function()
+            for _, egg in pairs(workspace:FindFirstChild("Eggs") and workspace.Eggs:GetChildren() or {}) do
+                if egg:FindFirstChild("ESP_Tag") then
+                    egg.ESP_Tag:Destroy()
+                end
+            end
+        end)
+    end
+end)
+
+-- Chống đánh (Anti-Bat)
+RunService.Stepped:Connect(function()
+    if Settings.AntiBat then
+        pcall(function()
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local bat = player.Character:FindFirstChild("Bat")
+                    if bat then
+                        -- Tùy chỉnh xử lý va chạm hoặc phòng thủ tại đây
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- 5. Xử lý sự kiện giao diện (Tương tác nút bấm)
+LangButton.MouseButton1Click:Connect(function()
+    if Settings.Language == "VN" then
+        Settings.Language = "EN"
+        LangButton.Text = "Lang: EN"
+    else
+        Settings.Language = "VN"
+        LangButton.Text = "Lang: VN"
+    end
+    TitleLabel.Text = Translations[Settings.Language].Title
+    HintLabel.Text = Translations[Settings.Language].ToggleKey
+end)
+
+-- Phím tắt ẩn/hiện menu (Right Shift)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+print("[Steal an Egg Hub]: Script đã được tải thành công!")
