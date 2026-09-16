@@ -1,0 +1,162 @@
+--[[
+    Script: Steal an Egg Hub (Optimized Mobile Version)
+]]--
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+
+-- Xóa giao diện cũ nếu có để tránh xung đột
+if CoreGui:FindFirstChild("StealAnEggHub") then
+    CoreGui.StealAnEggHub:Destroy()
+end
+
+-- Trạng thái tính năng
+local Settings = {
+    AutoSteal = false,
+    PetESP = false,
+    AntiBan = true,
+    AntiBat = true,
+    FPSBoost = false,
+    Language = "VN"
+}
+
+-- Từ điển ngôn ngữ
+local Texts = {
+    VN = {
+        Title = "Steal an Egg Hub",
+        AutoSteal = "Auto Steal Trứng: ",
+        ESP = "ESP Pet (Xuyên tường): ",
+        AntiBan = "Chống Ban (Anti-Ban): ",
+        AntiBat = "Chống Gậy (Anti-Bat): ",
+        FPSBoost = "Tăng FPS & Giảm Lag: "
+    }
+}
+
+-- 1. Tạo khung chứa chính (ScreenGui)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StealAnEggHub"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- 2. Nút nổi trên màn hình cho điện thoại (Có thể kéo thả)
+local OpenButton = Instance.new("TextButton")
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+OpenButton.Position = UDim2.new(0, 20, 0.4, 0)
+OpenButton.Size = UDim2.new(0, 60, 0, 60)
+OpenButton.Font = Enum.Font.SourceSansBold
+OpenButton.Text = "MENU"
+OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenButton.TextSize = 14
+OpenButton.Active = true
+OpenButton.Draggable = true
+
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(1, 0)
+OpenCorner.Parent = OpenButton
+
+-- 3. Khung Menu chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -180)
+MainFrame.Size = UDim2.new(0, 400, 0, 350)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = True -- Ép buộc hiển thị ngay khi chạy
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- Tiêu đề Menu
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleLabel.Size = UDim2.new(1, 0, 0, 45)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Text = Texts.VN.Title
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleLabel
+
+-- Khu vực chứa các nút tính năng (ScrollingFrame)
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = MainFrame
+Container.BackgroundTransparency = 1
+Container.Position = UDim2.new(0, 10, 0, 55)
+Container.Size = UDim2.new(1, -20, 1, -65)
+Container.CanvasSize = UDim2.new(0, 0, 0, 260)
+Container.ScrollBarThickness = 4
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = Container
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 10)
+
+-- Hàm tạo Nút Bật/Tắt chức năng
+local function CreateToggle(name, defaultState, callback)
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Parent = Container
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    ToggleBtn.Size = UDim2.new(1, 0, 0, 40)
+    ToggleBtn.Font = Enum.Font.SourceSansBold
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.TextSize = 14
+    ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local state = defaultState
+    local function updateText()
+        ToggleBtn.Text = "   " .. name .. (state and " [ON]" : " [OFF]")
+        ToggleBtn.BackgroundColor3 = state and Color3.fromRGB(46, 139, 87) or Color3.fromRGB(45, 45, 55)
+    end
+    updateText()
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = ToggleBtn
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        updateText()
+        callback(state)
+    end)
+end
+
+-- Thêm các chức năng vào giao diện
+CreateToggle(Texts.VN.AutoSteal, Settings.AutoSteal, function(state)
+    Settings.AutoSteal = state
+end)
+
+CreateToggle(Texts.VN.ESP, Settings.PetESP, function(state)
+    Settings.PetESP = state
+end)
+
+CreateToggle(Texts.VN.AntiBan, Settings.AntiBan, function(state)
+    Settings.AntiBan = state
+end)
+
+CreateToggle(Texts.VN.AntiBat, Settings.AntiBat, function(state)
+    Settings.AntiBat = state
+end)
+
+CreateToggle(Texts.VN.FPSBoost, Settings.FPSBoost, function(state)
+    Settings.FPSBoost = state
+    pcall(function()
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") or v:IsA("Sky") then v.Enabled = not state end
+        end
+    end)
+end)
+
+-- Sự kiện bấm vào nút tròn nổi để ẩn/hiện menu
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+print("[Steal an Egg Hub]: Tải giao diện thành công 100%!")
